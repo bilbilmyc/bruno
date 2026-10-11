@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { windowsOperation, readState, identify } from './operations.mjs';
 import { macOperation } from './mac.mjs';
 import { fileHash } from './archive.mjs';
+import plans from './plans.json' with { type: 'json' };
 
 function run(program,args) { return execFileSync(program,args,{encoding:'utf8',windowsHide:true,stdio:['ignore','pipe','pipe']}); }
 function guard() {
@@ -41,7 +42,7 @@ function checkWindowsFuse(app) {
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
-    console.log('Bruno 4.2.1 简体中文补丁 1.1.0\n用法：bruno-zh [apply|restore|status] [--app 安装目录]\n不指定操作时显示交互菜单。Windows x64 / macOS Apple Silicon。\n完全离线运行。先退出 Bruno。汉化及恢复不会修改集合、凭据或用户配置。');
+    console.log(`Bruno ${plans.brunoVersion} 简体中文补丁 ${plans.patchVersion}\n用法：bruno-zh [apply|restore|status] [--app 安装目录]\n不指定操作时显示交互菜单。Windows x64 / macOS Apple Silicon。\n完全离线运行。先退出 Bruno。汉化及恢复不会修改集合、凭据或用户配置。`);
     return;
   }
   if (!['win32','darwin'].includes(process.platform)) throw new Error('仅支持 Windows 和 macOS。');
@@ -56,7 +57,7 @@ async function main() {
   const readline = interactive ? createInterface({ input:process.stdin,output:process.stdout }) : null;
   try {
     if (interactive) {
-      console.log('Bruno 4.2.1 简体中文补丁\n1. 安装汉化\n2. 恢复原版\n3. 检查状态\n0. 退出');
+      console.log(`Bruno ${plans.brunoVersion} 简体中文补丁\n1. 安装汉化\n2. 恢复原版\n3. 检查状态\n0. 退出`);
       const answer = (await readline.question('请选择 [1/2/3/0]：')).trim();
       if (answer==='0') return;
       operation = {'1':'apply','2':'restore','3':'status'}[answer];
@@ -72,8 +73,8 @@ async function main() {
       const state = readState(backup);
       if (!fs.existsSync(archive)) throw new Error('应用文件缺失；若上次 Mac 切换中断，请执行 restore --app 原应用路径。');
       const hash=fileHash(archive);
-      if (state && hash===state.patched) console.log('状态：已汉化（Bruno 4.2.1）。');
-      else { identify(archive,process.platform);console.log('状态：原版 Bruno 4.2.1，可安装此补丁。'); }
+      if (state && hash===state.patched) console.log(`状态：已汉化（Bruno ${plans.brunoVersion}）。`);
+      else { identify(archive,process.platform);console.log(`状态：原版 Bruno ${plans.brunoVersion}，可安装此补丁。`); }
       return;
     }
     guard();

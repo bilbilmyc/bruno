@@ -1,4 +1,4 @@
-import hashlib, json, os, pathlib, stat, sys, zipfile
+import hashlib, json, os, pathlib, stat, subprocess, sys, zipfile
 root = pathlib.Path(__file__).resolve().parents[1]
 lock = json.loads((root / 'upstream-lock.json').read_text())
 mac = sys.platform == 'darwin'
@@ -10,7 +10,7 @@ verification=json.loads((artifact/('darwin-verification.json' if mac else 'win32
 assert verification['passed'] and verification['nativeSmoke'] and verification['restoreByteIdentical']
 assert verification['version']==lock['version']
 assert verification['executableSha256']==hashlib.file_digest((root/'dist'/name).open('rb'),'sha256').hexdigest()
-if os.environ.get('GITHUB_SHA'): assert verification['sourceCommit']==os.environ['GITHUB_SHA']
+assert verification['sourceCommit']==subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 archive = artifact / f'Bruno-{lock["version"]}-zh-CN-{platform}.zip'
 files = [(root/'dist'/name, name), (root/'README.md', '使用说明.md'), (root.parents[1]/'license.md','Bruno-LICENSE.txt')]
 files += [(p,'source/'+p.name) for p in root.iterdir() if p.is_file() and p.suffix in ('.mjs','.cjs','.json','.txt') and not p.name.startswith('missing-')]

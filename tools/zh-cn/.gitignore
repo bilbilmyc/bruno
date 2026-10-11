@@ -4,3 +4,4 @@ dist/
 work/
 artifacts/
 missing-*.json
+__pycache__/

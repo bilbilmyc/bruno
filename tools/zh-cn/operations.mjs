@@ -8,7 +8,7 @@ export function identify(archivePath, platform) {
   const archive = openArchive(archivePath);
   try {
     const pkg = JSON.parse(archive.read('package.json'));
-    if (pkg.name !== 'bruno' || pkg.version !== plans.brunoVersion) throw new Error('此补丁仅支持官方 Bruno 4.2.1，请勿用于其他版本。');
+    if (pkg.name !== 'bruno' || pkg.version !== plans.brunoVersion) throw new Error(`此补丁仅支持官方 Bruno ${plans.brunoVersion}，请勿用于其他版本。`);
   } finally { archive.close(); }
   const hash = fileHash(archivePath);
   const build = plans.builds.find(b => b.platform === platform && b.archiveSha256 === hash);

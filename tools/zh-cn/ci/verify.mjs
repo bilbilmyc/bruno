@@ -30,5 +30,6 @@ if(mac){assert.equal(macInternals.bundleFingerprint(app),bundle);run('/usr/bin/c
 patch('restore');
 patch('apply');assert.equal(fileHash(archive),after);
 patch('status');
-fs.writeFileSync(path.join(root,'artifacts',process.platform+'-verification.json'),JSON.stringify({passed:true,version:lock.version,sourceCommit:process.env.GITHUB_SHA||null,executableSha256:fileHash(binary),platform:process.platform,arch:process.arch,original:before,patched:after,restoreByteIdentical:true,nativeSmoke:true},null,2));
+const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+fs.writeFileSync(path.join(root,'artifacts',process.platform+'-verification.json'),JSON.stringify({passed:true,version:lock.version,sourceCommit,executableSha256:fileHash(binary),platform:process.platform,arch:process.arch,original:before,patched:after,restoreByteIdentical:true,nativeSmoke:true},null,2));
 console.log('PASS native apply / repeat / smoke / full restore / reapply');
