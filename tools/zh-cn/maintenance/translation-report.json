@@ -1,0 +1,6 @@
+{
+  "model": "Helsinki-NLP/opus-mt-en-zh",
+  "revision": "408d9bc410a388e1d9aef112a2daba955b945255",
+  "translations": {},
+  "keptEnglish": []
+}

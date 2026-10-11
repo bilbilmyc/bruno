@@ -2,7 +2,6 @@
   "version": "4.2.1",
   "tag": "v4.2.1",
   "repository": "usebruno/bruno",
-  "sourceCommit": "073fa7a",
   "assets": {
     "win32": {
       "name": "bruno_4.2.1_x64_win.zip",
@@ -12,5 +11,6 @@
       "name": "bruno_4.2.1_arm64_mac.zip",
       "sha256": "0573c46a7049c4def8a55a78edf6fe6202cae2ea6c8475da8cfc819408455ae9"
     }
-  }
+  },
+  "sourceCommit": "073fa7ac4a369d839dd3a3dcb09e4147fb2812c0"
 }
