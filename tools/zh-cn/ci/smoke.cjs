@@ -1,5 +1,6 @@
 const { _electron:electron,expect }=require('@playwright/test');
 const fs=require('fs'),path=require('path'),http=require('http');
+const {execFileSync}=require('child_process');
 const lock=require('../upstream-lock.json');
 const root=path.resolve(__dirname,'..'),appPath=process.env.BRUNO_TEST_APP;
 if(!appPath) throw new Error('BRUNO_TEST_APP must name an isolated test installation');
@@ -24,7 +25,12 @@ async function main(){
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   app=await electron.launch({executablePath:path.join(appPath,process.platform==='darwin'?'Contents/MacOS/Bruno':'Bruno.exe'),
     args:['--user-data-dir='+profile],env:{...process.env,PLAYWRIGHT:'true',DISABLE_SINGLE_INSTANCE:'true'},timeout:60000});
+  const append=(kind,text)=>fs.appendFileSync(path.join(artifacts,process.platform+'-'+(baseline?'en':'zh')+'-runtime.log'),kind+': '+String(text)+'\n');
+  app.process().stderr.on('data',data=>append('stderr',data));
+  app.on('console',message=>append('main',message.text()));
   const page=await app.firstWindow();const errors=[];
+  page.on('console',message=>append('renderer',message.text()));
+  page.on('crash',()=>append('crash','Renderer crashed'));
   page.on('pageerror',error=>errors.push({message:error.message,stage}));
   await page.waitForLoadState('domcontentloaded');
   expect(await app.evaluate(({app})=>app.getPath('userData'))).toBe(profile);
@@ -64,6 +70,10 @@ async function main(){
   console.log('PASS '+process.platform+' '+(baseline?'original':'Chinese')+' '+lock.version);
 }
 main().catch(async e=>{console.error('Failure at stage: '+stage,e);process.exitCode=1;
+  if(process.platform==='darwin'&&process.env.CI){
+    try{execFileSync('/usr/sbin/screencapture',['-x',path.join(artifacts,'darwin-desktop-failure.png')],{timeout:10000});}catch{}
+    if(app)try{execFileSync('/usr/bin/sample',[String(app.process().pid),'3','-file',path.join(artifacts,'darwin-sample.txt')],{timeout:10000});}catch{}
+  }
   if(app){try{await app.firstWindow().then(page=>page.screenshot({path:path.join(artifacts,process.platform+'-failure.png'),timeout:5000}));}catch{}}
 }).finally(async()=>{
   server.closeAllConnections();server.close();if(app){try{await Promise.race([app.close(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('close timeout')),5000))]);}catch{app.process().kill('SIGKILL');}}
