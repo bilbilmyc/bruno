@@ -8,6 +8,10 @@ const baseline=process.argv.includes('--english'), L=(zh,en)=>baseline?en:zh;
 const run=path.join(root,'work','smoke-'+(baseline?'en':'zh')+'-'+Date.now());
 const profile=path.join(run,'profile'),storage=path.join(run,'collections');
 fs.mkdirSync(profile,{recursive:true});fs.mkdirSync(storage,{recursive:true});
+const windowsStateFixture=path.join(root,'work','windows-local-state.json');
+// Windows safeStorage uses a profile key wrapped by DPAPI. Carry that same
+// synthetic profile key across the patch, as a real in-place update would.
+if(process.platform==='win32'&&!baseline) fs.copyFileSync(windowsStateFixture,path.join(profile,'Local State'));
 fs.writeFileSync(path.join(profile,'preferences.json'),JSON.stringify({preferences:{
   general:{defaultLocation:storage},autoupdate:{downloadUpdates:false},telemetry:{enabled:false},
   onboarding:{hasLaunchedBefore:true,hasSeenWelcomeModal:false,lastSeenVersion:lock.version,hasSentFirstRequest:false}
@@ -80,5 +84,6 @@ main().catch(async e=>{console.error('Failure at stage: '+stage,e);process.exitC
   if(app){try{await app.firstWindow().then(page=>page.screenshot({path:path.join(artifacts,process.platform+'-failure.png'),timeout:5000}));}catch{}}
 }).finally(async()=>{
   server.closeAllConnections();server.close();if(app){try{await Promise.race([app.close(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('close timeout')),5000))]);}catch{app.process().kill('SIGKILL');}}
+  if(process.platform==='win32'&&baseline&&!process.exitCode) fs.copyFileSync(path.join(profile,'Local State'),windowsStateFixture);
   clearTimeout(deadline);
 });
