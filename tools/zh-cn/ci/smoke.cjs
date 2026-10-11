@@ -19,6 +19,7 @@ const server=http.createServer((request,response)=>{let body='';request.on('data
   response.setHeader('Content-Type','application/json');response.end(JSON.stringify(payload));
 });});
 let app,stage='launch';
+const deadline=setTimeout(()=>{console.error('Native smoke timed out at stage: '+stage);app?.process().kill('SIGKILL');server.closeAllConnections();process.exit(1);},120000);
 async function main(){
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   app=await electron.launch({executablePath:path.join(appPath,process.platform==='darwin'?'Contents/MacOS/Bruno':'Bruno.exe'),
@@ -62,6 +63,9 @@ async function main(){
   fs.writeFileSync(path.join(artifacts,process.platform+'-'+(baseline?'en':'zh')+'.json'),JSON.stringify({version:lock.version,platform:process.platform,arch:process.arch,passed:true,errors,checks:['startup','preferences','HTTP 200','unaltered URL and JSON','create collection','save unchanged English request name','native menus']},null,2));
   console.log('PASS '+process.platform+' '+(baseline?'original':'Chinese')+' '+lock.version);
 }
-main().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{
-  server.close();if(app){try{await Promise.race([app.close(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('close timeout')),5000))]);}catch{app.process().kill();}}
+main().catch(async e=>{console.error('Failure at stage: '+stage,e);process.exitCode=1;
+  if(app){try{await app.firstWindow().then(page=>page.screenshot({path:path.join(artifacts,process.platform+'-failure.png'),timeout:5000}));}catch{}}
+}).finally(async()=>{
+  server.closeAllConnections();server.close();if(app){try{await Promise.race([app.close(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('close timeout')),5000))]);}catch{app.process().kill('SIGKILL');}}
+  clearTimeout(deadline);
 });

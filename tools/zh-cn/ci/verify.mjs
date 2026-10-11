@@ -13,7 +13,7 @@ const mac=process.platform==='darwin';
 if(mac) assert.equal(process.arch,'arm64','An actual Apple Silicon runner is required');
 const archive=path.join(app,mac?'Contents/Resources/app.asar':'resources/app.asar');
 const binary=path.join(root,'dist',mac?'bruno-zh-macos-arm64':'bruno-zh-windows.exe');
-const run=(program,args)=>execFileSync(program,args,{stdio:'inherit',windowsHide:true});
+const run=(program,args)=>execFileSync(program,args,{stdio:'inherit',windowsHide:true,timeout:180000});
 const patch=(op)=>run(binary,[op,'--app',app]);
 const before=fileHash(archive),bundle=mac?macInternals.bundleFingerprint(app):null;
 run(process.execPath,[path.join(root,'ci/smoke.cjs'),'--english']);
