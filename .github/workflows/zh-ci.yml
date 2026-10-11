@@ -7,10 +7,18 @@ on:
     branches: [zh-cn]
     paths: ['tools/zh-cn/**', '.github/workflows/zh-ci.yml']
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      candidate:
+        type: boolean
+        default: false
+      commit:
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
-  group: zh-ci-${{ github.ref }}
+  group: zh-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   verify:
@@ -26,6 +34,22 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        if: inputs.candidate
+        with:
+          name: zh-candidate
+          path: tools/zh-cn/work/candidate
+      - name: Check out the prepared candidate
+        if: inputs.candidate
+        env:
+          CANDIDATE_COMMIT: ${{ inputs.commit }}
+        run: |
+          git fetch "$GITHUB_WORKSPACE/tools/zh-cn/work/candidate/candidate.bundle" zh-candidate
+          test "$(git rev-parse FETCH_HEAD)" = "$CANDIDATE_COMMIT"
+          git checkout --detach "$CANDIDATE_COMMIT"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

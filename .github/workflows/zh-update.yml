@@ -1,0 +1,121 @@
+name: Maintain and publish Chinese patch
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check: 检查更新; rehearse: 只演练; rebuild: 重建当前版本并发布新修订'
+        type: choice
+        options: [check, rehearse, rebuild]
+        default: check
+  pull_request:
+    branches: [zh-cn]
+    paths: ['tools/zh-cn/maintenance/**', '.github/workflows/zh-update.yml', '.github/workflows/zh-ci.yml']
+permissions:
+  contents: read
+concurrency:
+  group: zh-maintenance-${{ github.event.pull_request.number || 'scheduled' }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      needed: ${{ steps.prepare.outputs.needed || steps.discover.outputs.needed }}
+      commit: ${{ steps.prepare.outputs.commit }}
+    defaults:
+      run:
+        working-directory: tools/zh-cn
+    env:
+      UPDATE_MODE: ${{ github.event_name == 'pull_request' && 'rehearse' || inputs.mode || 'check' }}
+      GH_TOKEN: ${{ github.token }}
+      GIT_AUTHOR_NAME: github-actions[bot]
+      GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s maintenance -p 'test_*.py'
+      - id: discover
+        run: python maintenance/prepare.py --discover
+      - uses: actions/setup-node@v4
+        if: steps.discover.outputs.needed == 'true'
+        with:
+          node-version: '24'
+      - uses: actions/cache@v4
+        if: steps.discover.outputs.needed == 'true'
+        with:
+          path: ~/.cache/huggingface
+          key: zh-model-408d9bc410a388e1d9aef112a2daba955b945255
+      - name: Install fixed translation dependencies
+        if: steps.discover.outputs.needed == 'true'
+        run: |
+          npm ci --ignore-scripts
+          python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r maintenance/requirements.txt
+      - id: prepare
+        if: steps.discover.outputs.needed == 'true'
+        run: python maintenance/prepare.py
+      - uses: actions/upload-artifact@v4
+        if: steps.prepare.outputs.needed == 'true'
+        with:
+          name: zh-candidate
+          path: tools/zh-cn/work/candidate/
+          retention-days: 14
+  native:
+    needs: prepare
+    if: needs.prepare.outputs.needed == 'true'
+    uses: ./.github/workflows/zh-ci.yml
+    with:
+      candidate: true
+      commit: ${{ needs.prepare.outputs.commit }}
+  publish:
+    needs: [prepare, native]
+    if: >-
+      github.ref == 'refs/heads/zh-cn' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      inputs.mode != 'rehearse' && needs.native.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          path: tools/zh-cn/work/delivery
+      - name: Verify every asset and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/zh-cn/maintenance/publish.py
+  keepalive:
+    needs: prepare
+    if: github.event_name == 'schedule' && needs.prepare.outputs.needed == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Record activity once a month to keep the public schedule enabled
+        run: |
+          month=$(date -u +%Y-%m)
+          file=tools/zh-cn/maintenance/last-active-month.txt
+          if [[ -f "$file" && "$(cat "$file")" == "$month" ]]; then exit 0; fi
+          printf '%s\n' "$month" > "$file"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$file"
+          git commit -m "Keep cloud maintenance schedule active ($month)"
+          git push origin HEAD:zh-cn

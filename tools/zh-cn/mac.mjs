@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { openArchive, rebuildArchive, fileHash, sha256 } from './archive.mjs';
 import { identify, saveState, readState, assertHash, withLock } from './operations.mjs';
+import plans from './plans.json' with { type: 'json' };
 
 const asar = app => path.join(app, 'Contents/Resources/app.asar');
 const command = (program, args) => execFileSync(program, args, { encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
@@ -102,7 +103,7 @@ export function macOperation(app, operation, { guard, log }) {
       command('/usr/bin/codesign', ['--verify','--deep','--strict',stage]);
       const patchedHash = fileHash(asar(stage));
       const patchedBundle = bundleFingerprint(stage);
-      state = { format:1, patchVersion:'1.1.0', platform:'darwin', original:build.archiveSha256, patched:patchedHash, originalBundle, patchedBundle, phase:'prepared' };
+      state = { format:1, patchVersion:plans.patchVersion, platform:'darwin', original:build.archiveSha256, patched:patchedHash, originalBundle, patchedBundle, phase:'prepared' };
       saveState(folder,state);
       fs.renameSync(stage,patched);
     }
