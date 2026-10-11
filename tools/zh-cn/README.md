@@ -28,7 +28,7 @@ sudo ./bruno-zh-macos-arm64 apply --app /Applications/Bruno.app
 sudo ./bruno-zh-macos-arm64 restore --app /Applications/Bruno.app
 ```
 
-Mac 中文副本采用本机 ad-hoc 签名，没有官方公证身份。为加载原始 Electron 框架，主程序保留 hardened runtime 和原始权限，并添加 `disable-library-validation` 权限。不会关闭系统 Gatekeeper。CI 的 M 芯片 macOS 启动验证不等同于下载后的 Gatekeeper 公证验收；首次打开仍可能需要在系统「隐私与安全性」中允许。
+Mac 中文副本采用本机 ad-hoc 签名，没有官方公证身份。主程序与四个辅助程序一起重新签名，分别保留 hardened runtime 和原始权限，并添加 `disable-library-validation` 权限以加载原始 Electron 框架。不会关闭系统 Gatekeeper。CI 的 M 芯片 macOS 启动验证不等同于下载后的 Gatekeeper 公证验收；首次打开仍可能需要在系统「隐私与安全性」中允许。
 
 请保留备份：Windows 位于 `resources/bruno-zh-backup`；Mac 位于应用旁的 `.Bruno.app.bruno-zh-backup`。Mac 预留至少 2 GB 空间。
 

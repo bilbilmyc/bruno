@@ -88,17 +88,25 @@ export function macOperation(app, operation, { guard, log }) {
       fs.renameSync(temporary, asar(stage));
       const plist = path.join(stage,'Contents/Info.plist');
       command('/usr/libexec/PlistBuddy', ['-c',`Set :ElectronAsarIntegrity:Resources/app.asar:hash ${headerHash}`,plist]);
-      // Ad-hoc signatures have no Team ID. The main executable needs an explicit
-      // library-validation exception to load the original signed Electron framework.
-      // Keep hardened runtime and all original entitlements; do not re-sign nested code.
-      const entitlements = command('/usr/bin/codesign',['--display','--entitlements',':-',app]);
-      if (!entitlements.includes('<plist')) throw new Error('无法读取原应用权限，已停止签名。');
-      const entitlementFile = path.join(folder,'local-entitlements.plist');
-      fs.writeFileSync(entitlementFile,entitlements);
-      const entitlementKey = 'com.apple.security.cs.disable-library-validation';
-      command('/usr/libexec/PlistBuddy',['-c',`${entitlements.includes('<key>'+entitlementKey+'</key>')?'Set':'Add'} :${entitlementKey} ${entitlements.includes('<key>'+entitlementKey+'</key>')?'true':'bool true'}`,entitlementFile]);
+      // Chromium authenticates its parent/helper IPC peers. Re-sign helper apps
+      // along with the main app so their signing identities remain consistent.
+      // Keep original hardened runtime flags and each bundle's own entitlements.
+      function signBundle(bundle, label) {
+        const entitlements = command('/usr/bin/codesign',['--display','--entitlements',':-',bundle]);
+        if (!entitlements.includes('<plist')) throw new Error('无法读取原应用权限，已停止签名。');
+        const entitlementFile = path.join(folder,label+'-entitlements.plist');
+        fs.writeFileSync(entitlementFile,entitlements);
+        const entitlementKey = 'com.apple.security.cs.disable-library-validation';
+        const exists = entitlements.includes('<key>'+entitlementKey+'</key>');
+        command('/usr/libexec/PlistBuddy',['-c',`${exists?'Set':'Add'} :${entitlementKey} ${exists?'true':'bool true'}`,entitlementFile]);
+        command('/usr/bin/codesign', ['--force','--sign','-','--preserve-metadata=flags','--entitlements',entitlementFile,bundle]);
+      }
       log('正在本机重新签名并验证中文副本…');
-      command('/usr/bin/codesign', ['--force','--sign','-','--preserve-metadata=flags','--entitlements',entitlementFile,stage]);
+      const frameworks = path.join(stage,'Contents/Frameworks');
+      const helpers = fs.readdirSync(frameworks).filter(name=>/^Bruno Helper(?: \((?:GPU|Plugin|Renderer)\))?\.app$/.test(name)).sort();
+      if (helpers.length !== 4) throw new Error('辅助程序布局与支持版本不一致，已停止。');
+      for (const [index,name] of helpers.entries()) signBundle(path.join(frameworks,name),'helper-'+index);
+      signBundle(stage,'main');
       command('/usr/bin/codesign', ['--verify','--deep','--strict',stage]);
       const patchedHash = fileHash(asar(stage));
       const patchedBundle = bundleFingerprint(stage);
