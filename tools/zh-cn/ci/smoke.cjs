@@ -35,6 +35,9 @@ async function main(){
   await page.waitForLoadState('domcontentloaded');
   expect(await app.evaluate(({app})=>app.getPath('userData'))).toBe(profile);
   expect(await app.evaluate(({app})=>app.getVersion())).toBe(lock.version);
+  const secretFixture=path.join(root,'work','safe-storage-fixture.txt');
+  if(baseline) fs.writeFileSync(secretFixture,await app.evaluate(({safeStorage})=>safeStorage.encryptString('Bruno localization CI fixture').toString('base64')));
+  else expect(await app.evaluate(({safeStorage},cipher)=>safeStorage.decryptString(Buffer.from(cipher,'base64')),fs.readFileSync(secretFixture,'utf8'))).toBe('Bruno localization CI fixture');
   await page.getByRole('button',{name:L('我先自己看看',"I'll explore on my own"),exact:true}).click();
   stage='preferences';
   await page.getByRole('button',{name:L('打开偏好设置','Open Preferences'),exact:true}).click();

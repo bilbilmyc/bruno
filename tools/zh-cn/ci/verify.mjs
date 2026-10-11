@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { fileHash } from '../archive.mjs';
 import { macInternals } from '../mac.mjs';
+import { withSmokeKeychain } from './keychain.mjs';
 import lock from '../upstream-lock.json' with {type:'json'};
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const app=path.resolve(process.env.BRUNO_TEST_APP||'');
@@ -16,10 +17,10 @@ const binary=path.join(root,'dist',mac?'bruno-zh-macos-arm64':'bruno-zh-windows.
 const run=(program,args)=>execFileSync(program,args,{stdio:'inherit',windowsHide:true,timeout:180000});
 const patch=(op)=>run(binary,[op,'--app',app]);
 const before=fileHash(archive),bundle=mac?macInternals.bundleFingerprint(app):null;
-run(process.execPath,[path.join(root,'ci/smoke.cjs'),'--english']);
+withSmokeKeychain(root,app,'en',()=>run(process.execPath,[path.join(root,'ci/smoke.cjs'),'--english']));
 patch('apply');const after=fileHash(archive);assert.notEqual(after,before);
 patch('apply');assert.equal(fileHash(archive),after);
-run(process.execPath,[path.join(root,'ci/smoke.cjs')]);
+withSmokeKeychain(root,app,'zh',()=>run(process.execPath,[path.join(root,'ci/smoke.cjs')]));
 const read=locale=>JSON.parse(fs.readFileSync(path.join(root,'artifacts',process.platform+'-'+locale+'.json'),'utf8'));
 // Known upstream save-dialog rejection may occur. No new error message is allowed.
 const english=read('en'),chinese=read('zh');

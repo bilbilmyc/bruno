@@ -28,7 +28,9 @@ sudo ./bruno-zh-macos-arm64 apply --app /Applications/Bruno.app
 sudo ./bruno-zh-macos-arm64 restore --app /Applications/Bruno.app
 ```
 
-Mac 中文副本采用本机 ad-hoc 签名，没有官方公证身份。主程序与四个辅助程序一起重新签名，分别保留 hardened runtime 和原始权限，并添加 `disable-library-validation` 权限以加载原始 Electron 框架。不会关闭系统 Gatekeeper。CI 的 M 芯片 macOS 启动验证不等同于下载后的 Gatekeeper 公证验收；首次打开仍可能需要在系统「隐私与安全性」中允许。
+Mac 中文副本采用本机 ad-hoc 签名，没有官方公证身份。为加载原始 Electron 框架，主程序保留 hardened runtime 和原始权限，并添加 `disable-library-validation` 权限。不会关闭系统 Gatekeeper。CI 的 M 芯片 macOS 启动验证不等同于下载后的 Gatekeeper 公证验收；首次打开仍可能需要在系统「隐私与安全性」中允许。
+
+Mac 首次启动中文副本时，系统可能提示 Bruno 要访问钥匙串中的 `bruno Safe Storage`。确认是你刚打开的 Bruno 后，在 macOS 系统窗口中输入自己的登录密码并选择允许。此提示由重新签名触发；补丁不读取密码、不更改钥匙串权限。没有完成授权时，应用可能停在加载中。恢复原版后使用原始签名。
 
 请保留备份：Windows 位于 `resources/bruno-zh-backup`；Mac 位于应用旁的 `.Bruno.app.bruno-zh-backup`。Mac 预留至少 2 GB 空间。
 
@@ -45,6 +47,8 @@ Mac 中文副本采用本机 ad-hoc 签名，没有官方公证身份。主程�
 使用 Node.js 24、Python 3.13 和 Bun 1.4.2。在此目录执行 `npm ci --ignore-scripts`，运行 `npm test`。修改词库后，用 `node generate-plans.cjs Windows原版app.asar Mac原版app.asar` 重建清单；再 `npm run build:win` 或 `npm run build:mac` 编译独立程序。
 
 `ci/prepare.py` 下载并校验对应平台官方包。`ci/verify.mjs` 在隔离目录运行原版和汉化版、发送本机 HTTP 请求、保存请求、验证数据不变，并验证原版完整恢复。macOS 必须使用 ARM64 runner。测试不接触日常用户配置，但应用启动可能注册 bruno://；本地测试后需恢复原有协议关联，CI 的一次性机器不受此影响。
+
+Mac CI 在一次性 GitHub runner 上为两次启动分别建立临时钥匙串，写入同一随机测试密钥并仅信任对应应用签名，用来模拟用户完成系统授权。还检查原版加密的测试字符串可由中文副本解密。CI 不自动点击钥匙串授权，不放宽真实用户钥匙串权限；用户首次启动授权仍需手动完成。
 
 公开仓库只包含代码、文案和公开构建元数据。个人配置、备份、日志、测试目录和编译缓存不提交。
 
