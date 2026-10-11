@@ -1,0 +1,33 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { fileHash } from '../archive.mjs';
+import { macInternals } from '../mac.mjs';
+import lock from '../upstream-lock.json' with {type:'json'};
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const app=path.resolve(process.env.BRUNO_TEST_APP||'');
+if(!app.includes(path.sep+'work'+path.sep)) throw new Error('Use an isolated test app inside work/');
+const mac=process.platform==='darwin';
+if(mac) assert.equal(process.arch,'arm64','An actual Apple Silicon runner is required');
+const archive=path.join(app,mac?'Contents/Resources/app.asar':'resources/app.asar');
+const binary=path.join(root,'dist',mac?'bruno-zh-macos-arm64':'bruno-zh-windows.exe');
+const run=(program,args)=>execFileSync(program,args,{stdio:'inherit',windowsHide:true});
+const patch=(op)=>run(binary,[op,'--app',app]);
+const before=fileHash(archive),bundle=mac?macInternals.bundleFingerprint(app):null;
+run(process.execPath,[path.join(root,'ci/smoke.cjs'),'--english']);
+patch('apply');const after=fileHash(archive);assert.notEqual(after,before);
+patch('apply');assert.equal(fileHash(archive),after);
+run(process.execPath,[path.join(root,'ci/smoke.cjs')]);
+const read=locale=>JSON.parse(fs.readFileSync(path.join(root,'artifacts',process.platform+'-'+locale+'.json'),'utf8'));
+// Known upstream save-dialog rejection may occur. No new error message is allowed.
+const english=read('en'),chinese=read('zh');
+for(const e of chinese.errors) assert.ok(english.errors.some(old=>old.message===e.message&&old.stage===e.stage),'New renderer error: '+JSON.stringify(e));
+patch('restore');assert.equal(fileHash(archive),before);
+if(mac){assert.equal(macInternals.bundleFingerprint(app),bundle);run('/usr/bin/codesign',['--verify','--deep','--strict',app]);}
+patch('restore');
+patch('apply');assert.equal(fileHash(archive),after);
+patch('status');
+fs.writeFileSync(path.join(root,'artifacts',process.platform+'-verification.json'),JSON.stringify({passed:true,version:lock.version,sourceCommit:process.env.GITHUB_SHA||null,executableSha256:fileHash(binary),platform:process.platform,arch:process.arch,original:before,patched:after,restoreByteIdentical:true,nativeSmoke:true},null,2));
+console.log('PASS native apply / repeat / smoke / full restore / reapply');

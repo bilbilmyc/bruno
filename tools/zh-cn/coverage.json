@@ -1,0 +1,14 @@
+[
+  {
+    "platform": "win32",
+    "translations": 2045,
+    "edits": 3729,
+    "remainingStaticCandidates": 573
+  },
+  {
+    "platform": "darwin",
+    "translations": 2045,
+    "edits": 3729,
+    "remainingStaticCandidates": 573
+  }
+]

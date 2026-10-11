@@ -1,0 +1,16 @@
+{
+  "name": "bruno-zh-local-patch",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test.mjs",
+    "build:win": "bun build --compile --target=bun-windows-x64-baseline --no-compile-autoload-dotenv --no-compile-autoload-bunfig cli.mjs --outfile dist/bruno-zh-windows.exe",
+    "build:mac": "bun build --compile --target=bun-darwin-arm64 --no-compile-autoload-dotenv --no-compile-autoload-bunfig cli.mjs --outfile dist/bruno-zh-macos-arm64"
+  },
+  "devDependencies": {
+    "acorn": "8.15.0",
+    "acorn-walk": "8.3.4",
+    "@playwright/test": "1.56.1"
+  }
+}
